@@ -1,0 +1,45 @@
+name: Download YouTube Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'YouTube video URL or ID'
+        required: true
+        type: string
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install yt-dlp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install yt-dlp
+
+      - name: Download video
+        run: node src/download.js "${{ github.event.inputs.video_url }}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if ! git diff --cached --quiet; then
+            git commit -m "📹 Downloaded video: ${{ github.event.inputs.video_url }}"
+            git push
+          else
+            echo "No changes to commit"
+          fi
