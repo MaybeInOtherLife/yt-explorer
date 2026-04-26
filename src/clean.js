@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.join('data', 'search_results');
+const dataDir = path.join('data');
 
 console.log('🗑️ Cleaning data directory...');
 
