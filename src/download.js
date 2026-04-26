@@ -56,12 +56,14 @@ let ytDlpCmd = `yt-dlp `;
 if (hasCookies) {
     console.log('🍪 استفاده از کوکی برای احراز هویت');
     ytDlpCmd += `--cookies "${cookiesPath}" `;
+    ytDlpCmd += `--extractor-args "youtube:player_client=web" `;
 } else {
     console.log('⚠️  بدون کوکی - استفاده از client اندروید');
-    ytDlpCmd += `--extractor-args "youtube:player_client=android" `;
+    ytDlpCmd += `--extractor-args "youtube:player_client=android,ios" `;
 }
 
-ytDlpCmd += `-f "bv*[height<=720]+ba/b[height<=720]/bv*[height<=480]+ba/b[height<=480]/bv*+ba/b" `;
+// فرمت ساده‌تر - اول بهترین زیر 720p، بعد هر چی موجوده
+ytDlpCmd += `-f "best[height<=720]/best[height<=480]/best" `;
 ytDlpCmd += `--merge-output-format mp4 `;
 ytDlpCmd += `-o "${outputDir}/%(title)s.%(ext)s" `;
 ytDlpCmd += `"https://youtube.com/watch?v=${videoId}"`;
@@ -77,27 +79,14 @@ try {
 // دانلود متادیتا
 console.log('📄 دانلود متادیتا...');
 const metadataCmd = hasCookies
-    ? `yt-dlp --cookies "${cookiesPath}" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
-    : `yt-dlp --extractor-args "youtube:player_client=android" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
+    ? `yt-dlp --cookies "${cookiesPath}" --extractor-args "youtube:player_client=web" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
+    : `yt-dlp --extractor-args "youtube:player_client=android,ios" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
 
 try {
     execSync(metadataCmd, { stdio: 'inherit' });
     console.log('✅ متادیتا ذخیره شد');
 } catch (error) {
     console.warn('⚠️  خطا در دانلود متادیتا:', error.message);
-}
-
-// دانلود تامبنیل
-console.log('🖼️  دانلود تامبنیل...');
-const thumbnailCmd = hasCookies
-    ? `yt-dlp --cookies "${cookiesPath}" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`
-    : `yt-dlp --extractor-args "youtube:player_client=android" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`;
-
-try {
-    execSync(thumbnailCmd, { stdio: 'inherit' });
-    console.log('✅ تامبنیل ذخیره شد');
-} catch (error) {
-    console.warn('⚠️  خطا در دانلود تامبنیل:', error.message);
 }
 
 console.log('\n✅ دانلود کامل شد!');
