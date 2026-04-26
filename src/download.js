@@ -69,7 +69,7 @@ console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
         const downloadCommand =
             `yt-dlp ` +
             `${cookiesArg} ` +
-            `--extractor-args "youtube:player_client=android" ` +
+            `--extractor-args "youtube:player_client=web" ` +
             `-f "best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best" ` +
             `--merge-output-format mp4 ` +
             `--no-check-certificates ` +
