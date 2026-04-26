@@ -16,6 +16,22 @@ function extractVideoId(url) {
     return null;
 }
 
+function runCommand(cmd, options = {}) {
+    return execSync(cmd, {
+        stdio: 'inherit',
+        ...options
+    });
+}
+
+function tryCommand(cmd) {
+    try {
+        execSync(cmd, { stdio: 'pipe' });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 const videoUrl = process.argv[2];
 
 if (!videoUrl) {
@@ -30,8 +46,10 @@ if (!videoId) {
     process.exit(1);
 }
 
+const youtubeUrl = `https://youtube.com/watch?v=${videoId}`;
+
 console.log(`📹 Video ID: ${videoId}`);
-console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
+console.log(`🔗 URL: ${youtubeUrl}`);
 
 // بررسی نصب yt-dlp
 try {
@@ -49,44 +67,84 @@ console.log(`📁 پوشه ایجاد شد: ${outputDir}`);
 const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
 const hasCookies = fs.existsSync(cookiesPath);
 
-// دانلود ویدیو
-console.log('⬇️ در حال دانلود ویدیو...');
-let ytDlpCmd = `yt-dlp `;
+const clients = hasCookies
+    ? ['web', 'mweb', 'android', 'ios']
+    : ['mweb', 'android', 'ios', 'web'];
 
-if (hasCookies) {
-    console.log('🍪 استفاده از کوکی برای احراز هویت');
-    ytDlpCmd += `--cookies "${cookiesPath}" `;
-    ytDlpCmd += `--extractor-args "youtube:player_client=web" `;
-} else {
-    console.log('⚠️  بدون کوکی - استفاده از client اندروید');
-    ytDlpCmd += `--extractor-args "youtube:player_client=android,ios" `;
+const formatSelector = `bv*[height<=720]+ba/b[height<=720]/bv*+ba/b`;
+
+let downloaded = false;
+let lastError = null;
+
+for (const client of clients) {
+    console.log(`\n🔍 تست با client: ${client}`);
+
+    let baseCmd = `yt-dlp `;
+    if (hasCookies) {
+        console.log('🍪 استفاده از کوکی برای احراز هویت');
+        baseCmd += `--cookies "${cookiesPath}" `;
+    } else {
+        console.log('⚠️ بدون کوکی');
+    }
+
+    baseCmd += `--extractor-args "youtube:player_client=${client}" `;
+
+    // اول بررسی کنیم آیا فرمت واقعی وجود دارد یا نه
+    const listFormatsCmd = `${baseCmd}-F "${youtubeUrl}"`;
+    const canListFormats = tryCommand(listFormatsCmd);
+
+    if (!canListFormats) {
+        console.log(`⚠️ دریافت فرمت‌ها با client=${client} ناموفق بود`);
+        continue;
+    }
+
+    console.log(`⬇️ در حال دانلود با client=${client}...`);
+
+    const downloadCmd =
+        `${baseCmd}` +
+        `-f "${formatSelector}" ` +
+        `--merge-output-format mp4 ` +
+        `-o "${outputDir}/%(title)s.%(ext)s" ` +
+        `"${youtubeUrl}"`;
+
+    try {
+        runCommand(downloadCmd);
+        console.log(`✅ دانلود ویدیو با client=${client} موفق بود`);
+        downloaded = true;
+
+        // دانلود متادیتا
+        console.log('📄 دانلود متادیتا...');
+        const metadataCmd =
+            `${baseCmd}` +
+            `--write-info-json --skip-download ` +
+            `-o "${outputDir}/info" ` +
+            `"${youtubeUrl}"`;
+
+        try {
+            runCommand(metadataCmd);
+            console.log('✅ متادیتا ذخیره شد');
+        } catch (error) {
+            console.warn('⚠️ خطا در دانلود متادیتا');
+        }
+
+        break;
+    } catch (error) {
+        lastError = error;
+        console.warn(`⚠️ دانلود با client=${client} شکست خورد`);
+    }
 }
 
-// فرمت ساده‌تر - اول بهترین زیر 720p، بعد هر چی موجوده
-ytDlpCmd += `-f "best[height<=720]/best[height<=480]/best" `;
-ytDlpCmd += `--merge-output-format mp4 `;
-ytDlpCmd += `-o "${outputDir}/%(title)s.%(ext)s" `;
-ytDlpCmd += `"https://youtube.com/watch?v=${videoId}"`;
-
-try {
-    execSync(ytDlpCmd, { stdio: 'inherit' });
-    console.log('✅ دانلود ویدیو موفق');
-} catch (error) {
-    console.error('❌ خطا در دانلود ویدیو:', error.message);
+if (!downloaded) {
+    console.error('\n❌ دانلود ناموفق بود با همه clientها');
+    console.error('💡 پیشنهادها:');
+    console.error('1) yt-dlp را آپدیت کن: yt-dlp -U');
+    console.error('2) فرمت‌ها را دستی چک کن: yt-dlp -F "URL"');
+    console.error('3) با --cookies-from-browser تست کن');
+    console.error('4) ffmpeg نصب باشد');
+    if (lastError) {
+        console.error(`آخرین خطا: ${lastError.message}`);
+    }
     process.exit(1);
-}
-
-// دانلود متادیتا
-console.log('📄 دانلود متادیتا...');
-const metadataCmd = hasCookies
-    ? `yt-dlp --cookies "${cookiesPath}" --extractor-args "youtube:player_client=web" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
-    : `yt-dlp --extractor-args "youtube:player_client=android,ios" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
-
-try {
-    execSync(metadataCmd, { stdio: 'inherit' });
-    console.log('✅ متادیتا ذخیره شد');
-} catch (error) {
-    console.warn('⚠️  خطا در دانلود متادیتا:', error.message);
 }
 
 console.log('\n✅ دانلود کامل شد!');
