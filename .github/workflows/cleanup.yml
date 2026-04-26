@@ -1,5 +1,5 @@
 # .github/workflows/clean-data.yml
-name: Clean Search Data
+name: Clean Data
 
 on:
   workflow_dispatch:
