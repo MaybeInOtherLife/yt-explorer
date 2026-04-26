@@ -1,10 +1,6 @@
-// src/download.js
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-
-const execAsync = promisify(exec);
+const { execSync } = require('child_process');
 
 function extractVideoId(url) {
     const patterns = [
@@ -37,78 +33,72 @@ if (!videoId) {
 console.log(`📹 Video ID: ${videoId}`);
 console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
 
-(async () => {
-    try {
-        try {
-            await execAsync('yt-dlp --version');
-        } catch (error) {
-            console.error('❌ yt-dlp نصب نیست. نصب: pip install -U yt-dlp');
-            process.exit(1);
-        }
+// بررسی نصب yt-dlp
+try {
+    execSync('yt-dlp --version', { stdio: 'ignore' });
+} catch (error) {
+    console.error('❌ yt-dlp نصب نیست. نصب: pip install -U yt-dlp');
+    process.exit(1);
+}
 
-        const videoDir = path.join('data', videoId);
-        fs.mkdirSync(videoDir, { recursive: true });
-        console.log(`📁 پوشه ایجاد شد: ${videoDir}`);
+const outputDir = path.join('data', videoId);
+fs.mkdirSync(outputDir, { recursive: true });
+console.log(`📁 پوشه ایجاد شد: ${outputDir}`);
 
-        console.log('⬇️ در حال دانلود ویدیو...');
+// بررسی وجود کوکی
+const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
+const hasCookies = fs.existsSync(cookiesPath);
 
-        const outputDir = path.join('data', videoId);
-        fs.mkdirSync(outputDir, { recursive: true });
+// دانلود ویدیو
+console.log('⬇️ در حال دانلود ویدیو...');
+let ytDlpCmd = `yt-dlp `;
 
-        // بررسی وجود کوکی
-        const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
-        const hasCookies = fs.existsSync(cookiesPath);
+if (hasCookies) {
+    console.log('🍪 استفاده از کوکی برای احراز هویت');
+    ytDlpCmd += `--cookies "${cookiesPath}" `;
+} else {
+    console.log('⚠️  بدون کوکی - استفاده از client اندروید');
+    ytDlpCmd += `--extractor-args "youtube:player_client=android" `;
+}
 
-// ساخت دستور yt-dlp
-        let ytDlpCmd = `yt-dlp `;
+ytDlpCmd += `-f "bv*[height<=720]+ba/b[height<=720]/bv*[height<=480]+ba/b[height<=480]/bv*+ba/b" `;
+ytDlpCmd += `--merge-output-format mp4 `;
+ytDlpCmd += `-o "${outputDir}/%(title)s.%(ext)s" `;
+ytDlpCmd += `"https://youtube.com/watch?v=${videoId}"`;
 
-        if (hasCookies) {
-            console.log('🍪 استفاده از کوکی برای احراز هویت');
-            ytDlpCmd += `--cookies "${cookiesPath}" `;
-        } else {
-            console.log('⚠️  بدون کوکی - استفاده از client اندروید');
-            ytDlpCmd += `--extractor-args "youtube:player_client=android" `;
-        }
-
-// فرمت ساده‌تر - اول 720p بعد 480p بعد هرچی موجوده
-        ytDlpCmd += `-f "bv*[height<=720]+ba/b[height<=720]/bv*[height<=480]+ba/b[height<=480]/bv*+ba/b" `;
-        ytDlpCmd += `--merge-output-format mp4 `;
-        ytDlpCmd += `-o "${outputDir}/%(title)s.%(ext)s" `;
-        ytDlpCmd += `"https://youtube.com/watch?v=${videoId}"`;
-
-        try {
-            execSync(ytDlpCmd, { stdio: 'inherit' });
-            console.log('✅ دانلود ویدیو موفق');
-        } catch (error) {
-            console.error('❌ خطا در دانلود ویدیو:', error.message);
-            process.exit(1);
-        }
+try {
+    execSync(ytDlpCmd, { stdio: 'inherit' });
+    console.log('✅ دانلود ویدیو موفق');
+} catch (error) {
+    console.error('❌ خطا در دانلود ویدیو:', error.message);
+    process.exit(1);
+}
 
 // دانلود متادیتا
-        console.log('📄 دانلود متادیتا...');
-        const metadataCmd = hasCookies
-            ? `yt-dlp --cookies "${cookiesPath}" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
-            : `yt-dlp --extractor-args "youtube:player_client=android" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
+console.log('📄 دانلود متادیتا...');
+const metadataCmd = hasCookies
+    ? `yt-dlp --cookies "${cookiesPath}" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
+    : `yt-dlp --extractor-args "youtube:player_client=android" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
 
-        await execAsync(metadataCmd);
-        console.log('✅ متادیتا ذخیره شد');
+try {
+    execSync(metadataCmd, { stdio: 'inherit' });
+    console.log('✅ متادیتا ذخیره شد');
+} catch (error) {
+    console.warn('⚠️  خطا در دانلود متادیتا:', error.message);
+}
 
-        console.log('🖼️  دانلود تامبنیل...');
-        const thumbnailCmd = hasCookies
-            ? `yt-dlp --cookies "${cookiesPath}" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`
-            : `yt-dlp --extractor-args "youtube:player_client=android" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`;
+// دانلود تامبنیل
+console.log('🖼️  دانلود تامبنیل...');
+const thumbnailCmd = hasCookies
+    ? `yt-dlp --cookies "${cookiesPath}" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`
+    : `yt-dlp --extractor-args "youtube:player_client=android" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`;
 
-        try {
-            execSync(thumbnailCmd, { stdio: 'inherit' });
-            console.log('✅ تامبنیل ذخیره شد');
-        } catch (error) {
-            console.warn('⚠️  خطا در دانلود تامبنیل:', error.message);
-        }
+try {
+    execSync(thumbnailCmd, { stdio: 'inherit' });
+    console.log('✅ تامبنیل ذخیره شد');
+} catch (error) {
+    console.warn('⚠️  خطا در دانلود تامبنیل:', error.message);
+}
 
-        console.log('\n✅ دانلود کامل شد!');
-        console.log(`📂 مسیر: ${videoDir}`);
-    } catch (error) {
-        console.error('❌ خطا:', error.message);
-        process.exit(1);
-    }
-})();
+console.log('\n✅ دانلود کامل شد!');
+console.log(`📂 مسیر: ${outputDir}`);
