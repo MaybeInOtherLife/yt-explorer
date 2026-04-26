@@ -49,13 +49,14 @@ async function main() {
         try {
             console.log(`🎬 تلاش با کیفیت ${q}...`);
 
+            const outputTemplate = path.join(outDir, '%(title)s.%(ext)s');
+
             const builder = ytdlp
                 .download(url)
                 .filter('mergevideo')
                 .quality(q)
                 .type('mp4')
-                .output(outDir)
-                .setOutputTemplate('%(title)s.%(ext)s')
+                .setOutputTemplate(outputTemplate)
                 .embedMetadata()
                 .embedThumbnail()
                 .on('progress', p => {
@@ -86,48 +87,6 @@ async function main() {
     if (!success) {
         console.error('\n❌ دانلود ویدیو با تمام کیفیت‌ها ناموفق بود');
         process.exit(1);
-    }
-
-    console.log('📄 دانلود متادیتا...');
-    try {
-        const builder = ytdlp.getInfo(url);
-
-        if (hasCookies) {
-            builder.addArgs('--cookies', cookiesPath);
-        } else {
-            builder.addArgs('--extractor-args', 'youtube:player_client=android');
-        }
-
-        const info = await builder.run();
-        fs.writeFileSync(
-            path.join(outDir, 'info.json'),
-            JSON.stringify(info, null, 2)
-        );
-        console.log('✅ متادیتا ذخیره شد\n');
-    } catch (e) {
-        console.warn(`⚠️  خطا در دانلود متادیتا: ${e.message}\n`);
-    }
-
-    console.log('🖼️  دانلود تامبنیل...');
-    try {
-        const builder = ytdlp
-            .download(url)
-            .writeThumbnail()
-            .skipDownload()
-            .output(outDir)
-            .setOutputTemplate('thumbnail')
-            .addArgs('--convert-thumbnails', 'jpg');
-
-        if (hasCookies) {
-            builder.addArgs('--cookies', cookiesPath);
-        } else {
-            builder.addArgs('--extractor-args', 'youtube:player_client=android');
-        }
-
-        await builder.run();
-        console.log('✅ تامبنیل ذخیره شد\n');
-    } catch (e) {
-        console.warn(`⚠️  خطا در دانلود تامبنیل: ${e.message}\n`);
     }
 
     console.log(`✅ دانلود کامل شد → ${outDir}`);
