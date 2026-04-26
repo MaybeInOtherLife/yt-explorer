@@ -10,6 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "youtube-sr": "^4.3.12"
+    "@distube/ytdl-core": "^4.16.12",
+    "youtube-sr": "^4.3.12",
+    "ytdlp-nodejs": "^3.4.4"
   }
 }
