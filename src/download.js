@@ -52,7 +52,8 @@ console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
 
         console.log('⬇️ در حال دانلود ویدیو...');
 
-        const outputPath = path.join(videoDir, '%(title)s.%(ext)s');
+        const outputDir = path.join('data', videoId);
+        fs.mkdirSync(outputDir, { recursive: true });
 
         // بررسی وجود کوکی
         const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
