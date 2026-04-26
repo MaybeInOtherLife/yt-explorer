@@ -35,7 +35,6 @@ jobs:
           sudo apt-get install -y ffmpeg
 
       - name: Create cookies file
-        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
         run: |
           echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
 
