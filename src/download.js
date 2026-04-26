@@ -50,6 +50,17 @@ console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
         fs.mkdirSync(videoDir, { recursive: true });
         console.log(`📁 پوشه ایجاد شد: ${videoDir}`);
 
+        // بررسی وجود فایل کوکی
+        const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+        let cookiesArg = '';
+
+        if (fs.existsSync(cookiesPath)) {
+            console.log('🍪 استفاده از کوکی‌ها برای احراز هویت');
+            cookiesArg = `--cookies "${cookiesPath}"`;
+        } else {
+            console.log('⚠️ فایل کوکی یافت نشد، دانلود بدون احراز هویت');
+        }
+
         console.log('⬇️ در حال دانلود ویدیو...');
 
         const outputPath = path.join(videoDir, '%(title)s.%(ext)s');
@@ -57,12 +68,11 @@ console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
         // استفاده از client اندروید + تنظیمات بهینه
         const downloadCommand =
             `yt-dlp ` +
-            `--extractor-args "youtube:player_client=android,ios" ` +
-            `--user-agent "com.google.android.youtube/17.36.4 (Linux; U; Android 12; GB) gzip" ` +
+            `${cookiesArg} ` +
+            `--extractor-args "youtube:player_client=android" ` +
             `-f "best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best" ` +
             `--merge-output-format mp4 ` +
             `--no-check-certificates ` +
-            `--no-warnings ` +
             `-o "${outputPath}" "https://youtube.com/watch?v=${videoId}"`;
 
         const { stdout: downloadOutput } = await execAsync(downloadCommand, {

@@ -4,16 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'YouTube video URL or ID'
+        description: 'YouTube Video URL or ID'
         required: true
         type: string
 
+permissions:
+  contents: write
 jobs:
   download:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,23 +22,33 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Install yt-dlp
+        run: pip install yt-dlp
+
+      - name: Create cookies file
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install yt-dlp
+          echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+        if: secrets.YOUTUBE_COOKIES != ''
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Download video
-        run: node src/download.js "${{ github.event.inputs.video_url }}"
+        run: node src/download.js "${{ inputs.video_url }}"
 
-      - name: Commit and push
+      - name: Remove cookies file
+        run: rm -f cookies.txt
+        if: always()
+
+      - name: Commit and push results
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add data/
-          if ! git diff --cached --quiet; then
-            git commit -m "📹 Downloaded video: ${{ github.event.inputs.video_url }}"
-            git push
-          else
-            echo "No changes to commit"
-          fi
+          git diff --staged --quiet || git commit -m "Downloaded video: ${{ inputs.video_url }}"
+          git push
