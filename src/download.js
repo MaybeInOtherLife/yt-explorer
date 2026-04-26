@@ -35,16 +35,10 @@ async function main() {
     console.log(`🔗 URL: ${url}`);
     console.log(`📁 پوشه: ${outDir}\n`);
 
-    // بدون مشخص کردن binaryPath - خودش از PATH استفاده می‌کند
     const ytdlp = new YtDlp();
 
     const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
-    const hasCookies = fs.existsSync(cookiesPath);
-    const cookies = hasCookies ? fs.readFileSync(cookiesPath, 'utf8') : null;
-
-    if (hasCookies) {
-        console.log('🍪 استفاده از کوکی برای احراز هویت\n');
-    }
+    const hasCookies = fs.existsSync(cookiesPath) && fs.statSync(cookiesPath).size > 0;
 
     console.log('⬇️  شروع دانلود ویدیو...');
 
@@ -70,7 +64,13 @@ async function main() {
                     }
                 });
 
-            if (cookies) builder.cookies(cookies);
+            if (hasCookies) {
+                console.log('🍪 استفاده از فایل کوکی');
+                builder.addArgs('--cookies', cookiesPath);
+            } else {
+                console.log('🤖 استفاده از player_client=android');
+                builder.addArgs('--extractor-args', 'youtube:player_client=android');
+            }
 
             const result = await builder.run();
 
@@ -90,7 +90,15 @@ async function main() {
 
     console.log('📄 دانلود متادیتا...');
     try {
-        const info = await ytdlp.getInfoAsync(url);
+        const builder = ytdlp.getInfo(url);
+
+        if (hasCookies) {
+            builder.addArgs('--cookies', cookiesPath);
+        } else {
+            builder.addArgs('--extractor-args', 'youtube:player_client=android');
+        }
+
+        const info = await builder.run();
         fs.writeFileSync(
             path.join(outDir, 'info.json'),
             JSON.stringify(info, null, 2)
@@ -110,7 +118,11 @@ async function main() {
             .setOutputTemplate('thumbnail')
             .addArgs('--convert-thumbnails', 'jpg');
 
-        if (cookies) builder.cookies(cookies);
+        if (hasCookies) {
+            builder.addArgs('--cookies', cookiesPath);
+        } else {
+            builder.addArgs('--extractor-args', 'youtube:player_client=android');
+        }
 
         await builder.run();
         console.log('✅ تامبنیل ذخیره شد\n');
