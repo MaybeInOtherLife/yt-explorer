@@ -50,59 +50,58 @@ console.log(`🔗 URL: https://youtube.com/watch?v=${videoId}`);
         fs.mkdirSync(videoDir, { recursive: true });
         console.log(`📁 پوشه ایجاد شد: ${videoDir}`);
 
-        // بررسی وجود فایل کوکی
-        const cookiesPath = path.join(process.cwd(), 'cookies.txt');
-        let cookiesArg = '';
-
-        if (fs.existsSync(cookiesPath)) {
-            console.log('🍪 استفاده از کوکی‌ها برای احراز هویت');
-            cookiesArg = `--cookies "${cookiesPath}"`;
-        } else {
-            console.log('⚠️ فایل کوکی یافت نشد، دانلود بدون احراز هویت');
-        }
-
         console.log('⬇️ در حال دانلود ویدیو...');
 
         const outputPath = path.join(videoDir, '%(title)s.%(ext)s');
 
-        // استفاده از client اندروید + تنظیمات بهینه
-        const downloadCommand =
-            `yt-dlp ` +
-            `${cookiesArg} ` +
-            `--extractor-args "youtube:player_client=web" ` +
-            `-f "best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best" ` +
-            `--merge-output-format mp4 ` +
-            `--no-check-certificates ` +
-            `-o "${outputPath}" "https://youtube.com/watch?v=${videoId}"`;
+        // بررسی وجود کوکی
+        const cookiesPath = path.join(__dirname, '..', 'cookies.txt');
+        const hasCookies = fs.existsSync(cookiesPath);
 
-        const { stdout: downloadOutput } = await execAsync(downloadCommand, {
-            maxBuffer: 1024 * 1024 * 10
-        });
+// ساخت دستور yt-dlp
+        let ytDlpCmd = `yt-dlp `;
 
-        console.log(downloadOutput);
-
-        const files = fs.readdirSync(videoDir).filter(f => f.endsWith('.mp4'));
-        if (files.length > 0) {
-            const videoFile = path.join(videoDir, files[0]);
-            const stats = fs.statSync(videoFile);
-            const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-            console.log(`📦 حجم فایل: ${sizeMB} MB`);
+        if (hasCookies) {
+            console.log('🍪 استفاده از کوکی برای احراز هویت');
+            ytDlpCmd += `--cookies "${cookiesPath}" `;
+        } else {
+            console.log('⚠️  بدون کوکی - استفاده از client اندروید');
+            ytDlpCmd += `--extractor-args "youtube:player_client=android" `;
         }
 
-        console.log('📝 دانلود متادیتا...');
-        await execAsync(
-            `yt-dlp --extractor-args "youtube:player_client=android" --write-info-json --skip-download -o "${path.join(videoDir, 'info')}" "https://youtube.com/watch?v=${videoId}"`
-        );
+// فرمت ساده‌تر - اول 720p بعد 480p بعد هرچی موجوده
+        ytDlpCmd += `-f "bv*[height<=720]+ba/b[height<=720]/bv*[height<=480]+ba/b[height<=480]/bv*+ba/b" `;
+        ytDlpCmd += `--merge-output-format mp4 `;
+        ytDlpCmd += `-o "${outputDir}/%(title)s.%(ext)s" `;
+        ytDlpCmd += `"https://youtube.com/watch?v=${videoId}"`;
+
+        try {
+            execSync(ytDlpCmd, { stdio: 'inherit' });
+            console.log('✅ دانلود ویدیو موفق');
+        } catch (error) {
+            console.error('❌ خطا در دانلود ویدیو:', error.message);
+            process.exit(1);
+        }
+
+// دانلود متادیتا
+        console.log('📄 دانلود متادیتا...');
+        const metadataCmd = hasCookies
+            ? `yt-dlp --cookies "${cookiesPath}" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`
+            : `yt-dlp --extractor-args "youtube:player_client=android" --write-info-json --skip-download -o "${outputDir}/info" "https://youtube.com/watch?v=${videoId}"`;
+
+        await execAsync(metadataCmd);
         console.log('✅ متادیتا ذخیره شد');
 
-        console.log('🖼️ دانلود تامبنیل...');
-        await execAsync(
-            `yt-dlp --extractor-args "youtube:player_client=android" --write-thumbnail --skip-download --convert-thumbnails png -o "${path.join(videoDir, 'thumbnail')}" "https://youtube.com/watch?v=${videoId}"`
-        );
+        console.log('🖼️  دانلود تامبنیل...');
+        const thumbnailCmd = hasCookies
+            ? `yt-dlp --cookies "${cookiesPath}" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`
+            : `yt-dlp --extractor-args "youtube:player_client=android" --write-thumbnail --skip-download --convert-thumbnails jpg -o "${outputDir}/thumbnail" "https://youtube.com/watch?v=${videoId}"`;
 
-        const thumbFiles = fs.readdirSync(videoDir).filter(f => f.startsWith('thumbnail') && f.endsWith('.png'));
-        if (thumbFiles.length > 0) {
-            console.log(`✅ تامبنیل: ${thumbFiles[0]}`);
+        try {
+            execSync(thumbnailCmd, { stdio: 'inherit' });
+            console.log('✅ تامبنیل ذخیره شد');
+        } catch (error) {
+            console.warn('⚠️  خطا در دانلود تامبنیل:', error.message);
         }
 
         console.log('\n✅ دانلود کامل شد!');
