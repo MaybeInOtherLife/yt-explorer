@@ -26,8 +26,12 @@ async function searchAndSave(query) {
         process.exit(1);
     }
 
-    const results = await yts.search(query, { limit: 30 });
-
+    let results
+    if (query.startsWith("playlist=")){
+        results = (await yts.getPlaylist(query.replace("playlist=",""),{limit: 100})).videos;
+    }else{
+        results = await yts.search(query, { limit: 30 });
+    }
     const safeName = query.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_').substring(0, 50);
     const dir = path.join(process.cwd(), 'data', 'search_results', safeName);
     fs.mkdirSync(dir, { recursive: true });
