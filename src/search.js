@@ -26,12 +26,7 @@ async function searchAndSave(query) {
         process.exit(1);
     }
 
-    let results
-    if (query.startsWith("playlist=")){
-        results = (await yts.getPlaylist(query.replace("playlist=",""),{limit: 100})).videos;
-    }else{
-        results = await yts.search(query, { limit: 30 });
-    }
+    let results = await yts.search(query, { limit: 50 })
     const safeName = query.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_').substring(0, 50);
     const dir = path.join(process.cwd(), 'data', 'search_results', safeName);
     fs.mkdirSync(dir, { recursive: true });
@@ -42,7 +37,6 @@ async function searchAndSave(query) {
         const v = results[i];
         const thumbFilename = `thumb${i + 1}.png`;
         const thumbPath = path.join(dir, thumbFilename);
-
         if (v.thumbnail?.url) {
             try {
                 await downloadImage(v.thumbnail.url, thumbPath);
