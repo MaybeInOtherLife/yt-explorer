@@ -37,12 +37,13 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          
+          git checkout --orphan new-main
           git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "🗑️ Clean all search data"
-            git push
-          else
-            echo "No changes to commit"
-          fi
+          git commit -m "Cleanup"
+          git branch -D master
+          git branch -m master
+          git push -f origin master
+          echo "✅ Changes pushed to repository"
